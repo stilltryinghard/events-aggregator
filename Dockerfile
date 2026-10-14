@@ -11,9 +11,11 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev
 
 COPY --chown=appuser:appuser app ./app
+COPY --chown=appuser:appuser alembic.ini run.sh ./
+COPY --chown=appuser:appuser alembic ./alembic
 
 ENV PATH="/code/.venv/bin:$PATH"
 
 USER appuser
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "./run.sh"]
