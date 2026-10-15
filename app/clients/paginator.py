@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from datetime import date
 
 from app.clients.events_provider import EventsProviderClient
+from app.entities import Event
 
 
 class EventsPaginator:
@@ -14,7 +15,7 @@ class EventsPaginator:
         self.client = client
         self.changed_at = changed_at
 
-    async def __aiter__(self) -> AsyncIterator[dict]:
+    async def __aiter__(self) -> AsyncIterator[Event]:
         cursor = None
         while True:
             page = await self.client.events(self.changed_at, cursor)

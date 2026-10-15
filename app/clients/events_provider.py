@@ -1,9 +1,11 @@
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from urllib.parse import parse_qs, urlparse
 
 import httpx
+
+from app.entities import Event, Place
 
 
 def _extract_cursor(next_url: str | None) -> str | None:
@@ -18,9 +20,36 @@ def _extract_cursor(next_url: str | None) -> str | None:
     return query["cursor"][0]
 
 
+def _parse_place(data: dict) -> Place:
+    return Place(
+        id=uuid.UUID(data["id"]),
+        name=data["name"],
+        city=data["city"],
+        address=data["address"],
+        seats_pattern=data["seats_pattern"],
+        changed_at=datetime.fromisoformat(data["changed_at"]),
+        created_at=datetime.fromisoformat(data["created_at"]),
+    )
+
+
+def _parse_event(data: dict) -> Event:
+    return Event(
+        id=uuid.UUID(data["id"]),
+        event_time=datetime.fromisoformat(data["event_time"]),
+        name=data["name"],
+        place=_parse_place(data["place"]),
+        status=data["status"],
+        number_of_visitors=data["number_of_visitors"],
+        registration_deadline=datetime.fromisoformat(data["registration_deadline"]),
+        status_changed_at=datetime.fromisoformat(data["status_changed_at"]),
+        changed_at=datetime.fromisoformat(data["changed_at"]),
+        created_at=datetime.fromisoformat(data["created_at"]),
+    )
+
+
 @dataclass
 class EventsPage:
-    results: list[dict]
+    results: list[Event]
     next_cursor: str | None
 
 
@@ -43,7 +72,8 @@ class EventsProviderClient:
         response.raise_for_status()
         data = response.json()
         return EventsPage(
-            results=data["results"], next_cursor=_extract_cursor(data["next"])
+            results=[_parse_event(item) for item in data["results"]],
+            next_cursor=_extract_cursor(data["next"]),
         )
 
     async def seats(self, event_id: uuid.UUID) -> list[str]:
