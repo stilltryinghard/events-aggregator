@@ -7,6 +7,11 @@ import httpx
 
 
 def _extract_cursor(next_url: str | None) -> str | None:
+    """Достаёт курсор из ссылки `next`, которую присылает провайдер.
+
+    Хост в этой ссылке может не совпадать с настроенным адресом,
+    поэтому берём только курсор, а запрос собираем сами.
+    """
     if next_url is None:
         return None
     query = parse_qs(urlparse(next_url).query)
@@ -20,6 +25,13 @@ class EventsPage:
 
 
 class EventsProviderClient:
+    """HTTP-клиент для Events Provider API.
+
+    Единственное место в сервисе, которое общается с провайдером.
+    Ожидает httpx.AsyncClient, заранее настроенный на адрес провайдера
+    и заголовок x-api-key.
+    """
+
     def __init__(self, http: httpx.AsyncClient):
         self.http = http
 
