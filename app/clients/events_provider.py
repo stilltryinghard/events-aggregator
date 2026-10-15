@@ -1,3 +1,11 @@
+"""Клиент к Events Provider API.
+
+Единственный модуль в сервисе, который знает, как устроен API провайдера:
+какие у него адреса, в каком виде он присылает данные и как листать страницы.
+Наружу отдаёт только сущности из app.entities, JSON провайдера дальше
+этого модуля не уходит.
+"""
+
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -21,6 +29,11 @@ def _extract_cursor(next_url: str | None) -> str | None:
 
 
 def _parse_place(data: dict) -> Place:
+    """Превращает словарь площадки из ответа провайдера в сущность Place.
+
+    Провайдер присылает айди и даты строками, здесь они становятся
+    uuid.UUID и datetime.
+    """
     return Place(
         id=uuid.UUID(data["id"]),
         name=data["name"],
@@ -33,6 +46,11 @@ def _parse_place(data: dict) -> Place:
 
 
 def _parse_event(data: dict) -> Event:
+    """Превращает словарь события из ответа провайдера в сущность Event.
+
+    Площадка приходит внутри события целым словарём под ключом "place",
+    её разбирает _parse_place.
+    """
     return Event(
         id=uuid.UUID(data["id"]),
         event_time=datetime.fromisoformat(data["event_time"]),
@@ -49,6 +67,13 @@ def _parse_event(data: dict) -> Event:
 
 @dataclass
 class EventsPage:
+    """Одна страница списка событий.
+
+    results: события этой страницы, уже разобранные в сущности.
+    next_cursor: закладка для запроса следующей страницы,
+        None, если эта страница последняя.
+    """
+
     results: list[Event]
     next_cursor: str | None
 
@@ -65,6 +90,14 @@ class EventsProviderClient:
         self.http = http
 
     async def events(self, changed_at: date, cursor: str | None = None) -> EventsPage:
+        """Запрашивает одну страницу событий, изменённых начиная с changed_at.
+
+        Для первой страницы cursor не передаётся. Для каждой следующей
+        передаётся next_cursor из предыдущей страницы. Обходить все страницы
+        удобнее через EventsPaginator.
+
+        Запрос: GET /api/events/?changed_at=2026-01-01&cursor=...
+        """
         params = {"changed_at": changed_at.isoformat()}
         if cursor:
             params["cursor"] = cursor
@@ -77,6 +110,14 @@ class EventsProviderClient:
         )
 
     async def seats(self, event_id: uuid.UUID) -> list[str]:
+        """Возвращает свободные места события, например ["A1", "A3", "B15"].
+
+        Работает только для опубликованных событий. Для остальных провайдер
+        отвечает 500 с HTML-страницей вместо JSON, поэтому статус события
+        стоит проверять до вызова.
+
+        Запрос: GET /api/events/{event_id}/seats/
+        """
         response = await self.http.get(f"/api/events/{event_id}/seats/")
         response.raise_for_status()
         data = response.json()
@@ -90,6 +131,14 @@ class EventsProviderClient:
         email: str,
         seat: str,
     ) -> uuid.UUID:
+        """Регистрирует участника на место и возвращает ticket_id от провайдера.
+
+        Если место уже занято, провайдер отвечает 400.
+        ticket_id привязан к месту: после отмены регистрации следующий
+        участник на то же место получит тот же ticket_id.
+
+        Запрос: POST /api/events/{event_id}/register/
+        """
         response = await self.http.post(
             f"/api/events/{event_id}/register/",
             json={
@@ -103,6 +152,12 @@ class EventsProviderClient:
         return uuid.UUID(response.json()["ticket_id"])
 
     async def unregister(self, event_id: uuid.UUID, ticket_id: uuid.UUID) -> None:
+        """Отменяет регистрацию по ticket_id.
+
+        Провайдеру нужен и айди события, и айди билета.
+
+        Запрос: DELETE /api/events/{event_id}/unregister/ с ticket_id в теле.
+        """
         response = await self.http.request(
             "DELETE",
             f"/api/events/{event_id}/unregister/",
