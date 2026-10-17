@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, date, datetime, time
 
 from sqlalchemy import func, select
@@ -119,3 +120,16 @@ class EventRepository:
         result = await self.session.execute(stmt)
         models = result.scalars().all()
         return [_to_entity(model) for model in models]
+
+    async def get(self, event_id: uuid.UUID) -> Event | None:
+        """Возвращает событие с площадкой по id или None, если его нет"""
+        stmt = (
+            select(EventModel)
+            .options(selectinload(EventModel.place))
+            .where(EventModel.id == event_id)
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        return _to_entity(model)

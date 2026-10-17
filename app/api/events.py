@@ -1,9 +1,10 @@
+import uuid
 from datetime import date
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.api.dependencies import EventRepositoryDep
-from app.api.schemas import EventListItem, EventsPageResponse
+from app.api.schemas import EventDetail, EventListItem, EventsPageResponse
 
 router = APIRouter(prefix="/api")
 
@@ -33,3 +34,13 @@ async def list_events(
         previous=previous_url,
         results=[EventListItem.model_validate(event) for event in events],
     )
+
+
+@router.get("/events/{event_id}", response_model=EventDetail)
+async def get_event(event_id: uuid.UUID, repository: EventRepositoryDep):
+    event = await repository.get(event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
+        )
+    return EventDetail.model_validate(event)
