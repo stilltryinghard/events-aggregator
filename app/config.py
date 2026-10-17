@@ -1,8 +1,10 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(str_strip_whitespace=True)
+
     postgres_host: str
     postgres_port: int
     postgres_username: str
