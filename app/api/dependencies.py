@@ -20,6 +20,13 @@ def get_health_repository(session: SessionDep) -> HealthRepository:
 HealthRepositoryDep = Annotated[HealthRepository, Depends(get_health_repository)]
 
 
+def get_event_repository(session: SessionDep) -> EventRepository:
+    return EventRepository(session)
+
+
+EventRepositoryDep = Annotated[EventRepository, Depends(get_event_repository)]
+
+
 def get_events_client(request: Request) -> EventsProviderClient:
     return EventsProviderClient(request.app.state.http)
 

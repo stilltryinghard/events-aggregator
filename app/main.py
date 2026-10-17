@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI
 
+from app.api.events import router as events_router
 from app.api.health import router as health_router
 from app.api.sync import router as sync_router
 from app.config import settings
@@ -28,3 +29,4 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(health_router)
 app.include_router(sync_router)
+app.include_router(events_router)
