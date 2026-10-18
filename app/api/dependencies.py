@@ -9,8 +9,10 @@ from app.db import get_session
 from app.repositories.events import EventRepository
 from app.repositories.health import HealthRepository
 from app.repositories.sync_runs import SyncRunRepository
+from app.repositories.tickets import TicketRepository
 from app.usecases.get_seats import GetSeatsUsecase
 from app.usecases.sync_events import SyncEventsUsecase
+from app.usecases.tickets import CancelTicketUsecase, CreateTicketUsecase
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
@@ -62,3 +64,35 @@ def get_seats_usecase(
 
 
 SeatsUsecaseDep = Annotated[GetSeatsUsecase, Depends(get_seats_usecase)]
+
+
+def get_create_ticket_usecase(
+    session: SessionDep, client: EventsClientDep
+) -> CreateTicketUsecase:
+    return CreateTicketUsecase(
+        events=EventRepository(session),
+        tickets=TicketRepository(session),
+        client=client,
+        transaction=session,
+    )
+
+
+CreateTicketUsecaseDep = Annotated[
+    CreateTicketUsecase, Depends(get_create_ticket_usecase)
+]
+
+
+def get_cancel_ticket_usecase(
+    session: SessionDep, client: EventsClientDep
+) -> CancelTicketUsecase:
+    return CancelTicketUsecase(
+        events=EventRepository(session),
+        tickets=TicketRepository(session),
+        client=client,
+        transaction=session,
+    )
+
+
+CancelTicketUsecaseDep = Annotated[
+    CancelTicketUsecase, Depends(get_cancel_ticket_usecase)
+]

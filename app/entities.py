@@ -26,3 +26,10 @@ class Event:
     status_changed_at: datetime
     changed_at: datetime
     created_at: datetime
+
+
+@dataclass
+class Ticket:
+    ticket_id: uuid.UUID
+    event_id: uuid.UUID
+    seat: str

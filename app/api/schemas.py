@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class PlaceShort(BaseModel):
@@ -57,3 +57,19 @@ class EventDetail(BaseModel):
 class SeatsResponse(BaseModel):
     event_id: uuid.UUID
     available_seats: list[str]
+
+
+class TicketCreate(BaseModel):
+    event_id: uuid.UUID
+    first_name: str = Field(min_length=1)
+    last_name: str = Field(min_length=1)
+    email: EmailStr
+    seat: str = Field(min_length=2)
+
+
+class TicketCreated(BaseModel):
+    ticket_id: uuid.UUID
+
+
+class TicketCancelled(BaseModel):
+    success: bool

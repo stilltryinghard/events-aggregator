@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.events import router as events_router
 from app.api.health import router as health_router
 from app.api.sync import router as sync_router
+from app.api.tickets import router as tickets_router
 from app.cache import SeatsCache
 from app.config import settings
 
@@ -32,3 +33,4 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(health_router)
 app.include_router(sync_router)
 app.include_router(events_router)
+app.include_router(tickets_router)

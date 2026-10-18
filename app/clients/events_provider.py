@@ -16,6 +16,10 @@ import httpx
 from app.entities import Event, Place
 
 
+class SeatUnavailable(Exception):
+    """Провайдер отказал в регистрации: место уже занято."""
+
+
 def _extract_cursor(next_url: str | None) -> str | None:
     """Достаёт курсор из ссылки `next`, которую присылает провайдер.
 
@@ -148,6 +152,8 @@ class EventsProviderClient:
                 "seat": seat,
             },
         )
+        if response.status_code == httpx.codes.BAD_REQUEST:
+            raise SeatUnavailable(response.text)
         response.raise_for_status()
         return uuid.UUID(response.json()["ticket_id"])
 

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Protocol
 
 from app.clients.events_provider import EventsPage
-from app.entities import Event
+from app.entities import Event, Ticket
 
 
 class EventsClient(Protocol):
@@ -45,3 +45,32 @@ class SeatsStore(Protocol):
     def get(self, event_id: uuid.UUID) -> list[str] | None: ...
 
     def set(self, event_id: uuid.UUID, seats: list[str]) -> None: ...
+
+
+class TicketClient(Protocol):
+    async def register(
+        self,
+        event_id: uuid.UUID,
+        first_name: str,
+        last_name: str,
+        email: str,
+        seat: str,
+    ) -> uuid.UUID: ...
+
+    async def unregister(self, event_id: uuid.UUID, ticket_id: uuid.UUID) -> None: ...
+
+
+class TicketStore(Protocol):
+    async def create(
+        self,
+        ticket_id: uuid.UUID,
+        event_id: uuid.UUID,
+        first_name: str,
+        last_name: str,
+        email: str,
+        seat: str,
+    ) -> None: ...
+
+    async def get_active(self, ticket_id: uuid.UUID) -> Ticket | None: ...
+
+    async def cancel(self, ticket_id: uuid.UUID) -> None: ...
