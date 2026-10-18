@@ -7,5 +7,5 @@ router = APIRouter(prefix="/api")
 
 @router.post("/sync/trigger")
 async def trigger_sync(usecase: SyncUsecaseDep):
-    await usecase.do()
-    return {"status": "ok"}
+    started = await usecase.do()
+    return {"status": "ok" if started else "already_running"}

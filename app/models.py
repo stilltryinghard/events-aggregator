@@ -63,6 +63,15 @@ class Ticket(Base):
 class SyncRun(Base):
     __tablename__ = "sync_runs"
 
+    __table_args__ = (
+        Index(
+            "uq_sync_runs_single_running",
+            "status",
+            unique=True,
+            postgresql_where=text("status = 'running'"),
+        ),
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(default=uuid.uuid4, primary_key=True)
     status: Mapped[str]
     started_at: Mapped[datetime] = mapped_column(

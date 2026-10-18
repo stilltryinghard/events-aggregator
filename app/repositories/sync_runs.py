@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import SyncRun as SyncRunModel
@@ -13,11 +14,27 @@ class SyncRunRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def start(self) -> uuid.UUID:
-        """Записывает начало синхронизации со статусом running, возвращает id строки"""
+    async def start(self) -> uuid.UUID | None:
+        """Записывает начало синхронизации со статусом running и возвращает id строки.
+        Если другая синхронизация уже идёт, возвращает None: уникальный индекс
+        не даёт вставить вторую строку running. Зависшие running старше часа
+        сначала помечаются упавшими, чтобы не блокировать синхронизацию навсегда.
+        """
+
+        await self.session.execute(
+            update(SyncRunModel)
+            .where(
+                SyncRunModel.status == "running",
+                SyncRunModel.started_at < func.now() - text("interval '1 hour'"),
+            )
+            .values(status="failed", finished_at=func.now(), error="stale run")
+        )
         run = SyncRunModel(status="running")
-        self.session.add(run)
-        await self.session.flush()
+        try:
+            async with self.session.begin_nested():
+                self.session.add(run)
+        except IntegrityError:
+            return None
         return run.id
 
     async def last_changed_at(self) -> datetime | None:

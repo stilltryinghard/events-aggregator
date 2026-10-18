@@ -1,5 +1,6 @@
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import httpx
 from fastapi import FastAPI, Request
@@ -13,6 +14,7 @@ from app.api.sync import router as sync_router
 from app.api.tickets import router as tickets_router
 from app.cache import SeatsCache
 from app.config import settings
+from app.worker import sync_loop
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,7 +31,11 @@ async def lifespan(app: FastAPI):
     ) as http:
         app.state.http = http
         app.state.seats_cache = SeatsCache(ttl_seconds=30)
+        sync_task = asyncio.create_task(sync_loop(http))
         yield
+        sync_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await sync_task
 
 
 app = FastAPI(lifespan=lifespan)

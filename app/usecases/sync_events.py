@@ -22,9 +22,13 @@ class SyncEventsUsecase:
         self.sync_runs = sync_runs
         self.transaction = transaction
 
-    async def do(self) -> None:
+    async def do(self) -> bool:
+        """Запускает синхронизацию. Возвращает False, если другая уже идёт."""
         run_id = await self.sync_runs.start()
         await self.transaction.commit()
+        if run_id is None:
+            logger.info("Синхронизация уже идёт, запуск пропущен")
+            return False
 
         last_changed_at = await self.sync_runs.last_changed_at()
         if last_changed_at is None:
@@ -52,3 +56,4 @@ class SyncEventsUsecase:
         logger.info(
             "Синхронизация %s завершена, last_changed_at=%s", run_id, max_changed_at
         )
+        return True
