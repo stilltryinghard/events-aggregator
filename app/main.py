@@ -2,7 +2,10 @@ import logging
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.api.events import router as events_router
 from app.api.health import router as health_router
@@ -34,3 +37,14 @@ app.include_router(health_router)
 app.include_router(sync_router)
 app.include_router(events_router)
 app.include_router(tickets_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Ошибки валидации запроса отдаём как 400, как в контракте ТЗ."""
+    return JSONResponse(
+        status_code=400,
+        content={"detail": jsonable_encoder(exc.errors())},
+    )
