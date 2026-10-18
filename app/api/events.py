@@ -3,8 +3,14 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from app.api.dependencies import EventRepositoryDep
-from app.api.schemas import EventDetail, EventListItem, EventsPageResponse
+from app.api.dependencies import EventRepositoryDep, SeatsUsecaseDep
+from app.api.schemas import (
+    EventDetail,
+    EventListItem,
+    EventsPageResponse,
+    SeatsResponse,
+)
+from app.usecases.errors import EventNotFound, EventNotPublished
 
 router = APIRouter(prefix="/api")
 
@@ -44,3 +50,18 @@ async def get_event(event_id: uuid.UUID, repository: EventRepositoryDep):
             status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
         )
     return EventDetail.model_validate(event)
+
+
+@router.get("/events/{event_id}/seats", response_model=SeatsResponse)
+async def get_seats(event_id: uuid.UUID, usecase: SeatsUsecaseDep):
+    try:
+        seats = await usecase.do(event_id)
+    except EventNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Event not found"
+        ) from None
+    except EventNotPublished:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Event is not published"
+        ) from None
+    return SeatsResponse(event_id=event_id, available_seats=seats)

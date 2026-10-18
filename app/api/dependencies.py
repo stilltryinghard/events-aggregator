@@ -3,11 +3,13 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache import SeatsCache
 from app.clients.events_provider import EventsProviderClient
 from app.db import get_session
 from app.repositories.events import EventRepository
 from app.repositories.health import HealthRepository
 from app.repositories.sync_runs import SyncRunRepository
+from app.usecases.get_seats import GetSeatsUsecase
 from app.usecases.sync_events import SyncEventsUsecase
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -44,3 +46,19 @@ def get_sync_usecase(session: SessionDep, client: EventsClientDep) -> SyncEvents
 
 
 SyncUsecaseDep = Annotated[SyncEventsUsecase, Depends(get_sync_usecase)]
+
+
+def get_seats_cache(request: Request) -> SeatsCache:
+    return request.app.state.seats_cache
+
+
+SeatsCacheDep = Annotated[SeatsCache, Depends(get_seats_cache)]
+
+
+def get_seats_usecase(
+    session: SessionDep, client: EventsClientDep, cache: SeatsCacheDep
+) -> GetSeatsUsecase:
+    return GetSeatsUsecase(events=EventRepository(session), client=client, cache=cache)
+
+
+SeatsUsecaseDep = Annotated[GetSeatsUsecase, Depends(get_seats_usecase)]

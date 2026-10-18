@@ -52,3 +52,8 @@ class EventDetail(BaseModel):
     registration_deadline: datetime
     status: str
     number_of_visitors: int
+
+
+class SeatsResponse(BaseModel):
+    event_id: uuid.UUID
+    available_seats: list[str]

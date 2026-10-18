@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.events import router as events_router
 from app.api.health import router as health_router
 from app.api.sync import router as sync_router
+from app.cache import SeatsCache
 from app.config import settings
 
 logging.basicConfig(
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
         timeout=10.0,
     ) as http:
         app.state.http = http
+        app.state.seats_cache = SeatsCache(ttl_seconds=30)
         yield
 
 
