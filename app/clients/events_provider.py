@@ -6,6 +6,7 @@
 этого модуля не уходит.
 """
 
+import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -88,10 +89,41 @@ class EventsProviderClient:
     Единственное место в сервисе, которое общается с провайдером.
     Ожидает httpx.AsyncClient, заранее настроенный на адрес провайдера
     и заголовок x-api-key.
+
+    Читающие запросы (events, seats) повторяются при сбоях через _get.
+    Изменяющие (register, unregister) не повторяются.
+    При ответе провайдера с ошибкой методы бросают httpx.HTTPStatusError.
     """
 
-    def __init__(self, http: httpx.AsyncClient):
+    def __init__(
+        self,
+        http: httpx.AsyncClient,
+        max_attempts: int = 3,
+        retry_delay: float = 0.5,
+    ):
         self.http = http
+        self.max_attempts = max_attempts
+        self.retry_delay = retry_delay
+
+    async def _get(self, path: str, params: dict | None = None) -> httpx.Response:
+        """GET с повторами при обрыве сети и ответах 5xx.
+
+        Повторяем только чтение: оно ничего не меняет у провайдера.
+        Регистрацию и отмену не повторяем, повтор мог бы выполнить действие дважды.
+        Паузы между попытками растут: retry_delay, затем 2 * retry_delay.
+        """
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                response = await self.http.get(path, params=params)
+            except httpx.TransportError:
+                if attempt == self.max_attempts:
+                    raise
+            else:
+                if response.status_code < 500 or attempt == self.max_attempts:
+                    response.raise_for_status()
+                    return response
+            await asyncio.sleep(self.retry_delay * attempt)
+        raise AssertionError("unreachable")
 
     async def events(self, changed_at: date, cursor: str | None = None) -> EventsPage:
         """Запрашивает одну страницу событий, изменённых начиная с changed_at.
@@ -105,8 +137,7 @@ class EventsProviderClient:
         params = {"changed_at": changed_at.isoformat()}
         if cursor:
             params["cursor"] = cursor
-        response = await self.http.get("/api/events/", params=params)
-        response.raise_for_status()
+        response = await self._get("/api/events/", params=params)
         data = response.json()
         return EventsPage(
             results=[_parse_event(item) for item in data["results"]],
@@ -122,8 +153,7 @@ class EventsProviderClient:
 
         Запрос: GET /api/events/{event_id}/seats/
         """
-        response = await self.http.get(f"/api/events/{event_id}/seats/")
-        response.raise_for_status()
+        response = await self._get(f"/api/events/{event_id}/seats/")
         data = response.json()
         return data["seats"]
 
@@ -137,9 +167,10 @@ class EventsProviderClient:
     ) -> uuid.UUID:
         """Регистрирует участника на место и возвращает ticket_id от провайдера.
 
-        Если место уже занято, провайдер отвечает 400.
-        ticket_id привязан к месту: после отмены регистрации следующий
-        участник на то же место получит тот же ticket_id.
+        Если место уже занято, провайдер отвечает 400, и метод бросает
+        SeatUnavailable. ticket_id привязан к месту: после отмены регистрации
+        следующий участник на то же место получит тот же ticket_id.
+        Не повторяется при сбоях: регистрация неидемпотентна.
 
         Запрос: POST /api/events/{event_id}/register/
         """
@@ -161,9 +192,11 @@ class EventsProviderClient:
         """Отменяет регистрацию по ticket_id.
 
         Провайдеру нужен и айди события, и айди билета.
+        Не повторяется при сбоях, как и регистрация.
 
         Запрос: DELETE /api/events/{event_id}/unregister/ с ticket_id в теле.
         """
+        # httpx.delete() не принимает тело, а провайдер ждёт ticket_id в JSON
         response = await self.http.request(
             "DELETE",
             f"/api/events/{event_id}/unregister/",

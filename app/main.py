@@ -54,3 +54,14 @@ async def validation_error_handler(
         status_code=400,
         content={"detail": jsonable_encoder(exc.errors())},
     )
+
+
+@app.exception_handler(httpx.HTTPError)
+async def provider_error_handler(
+    request: Request, exc: httpx.HTTPError
+) -> JSONResponse:
+    """Сбой Events Provider API: отвечаем 502, а не 500 с трейсбеком."""
+    logging.getLogger(__name__).exception("Ошибка Events Provider API")
+    return JSONResponse(
+        status_code=502, content={"detail": "Events provider unavailable"}
+    )

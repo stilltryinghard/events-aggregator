@@ -82,13 +82,40 @@ async def test_events_passes_cursor_and_last_page_has_no_cursor():
     assert page.results == []
 
 
-async def test_events_raises_on_provider_error():
+async def test_events_raises_after_retries_on_provider_error():
     http = AsyncMock(spec=httpx.AsyncClient)
     http.get.return_value = make_response(500, {"detail": "boom"})
-    client = EventsProviderClient(http)
+    client = EventsProviderClient(http, retry_delay=0)
 
     with pytest.raises(httpx.HTTPStatusError):
         await client.events(date(2026, 1, 1))
+
+    assert http.get.await_count == 3
+
+
+async def test_events_retries_and_succeeds_after_server_error():
+    http = AsyncMock(spec=httpx.AsyncClient)
+    http.get.side_effect = [
+        make_response(503, {"detail": "busy"}),
+        make_response(200, {"next": None, "previous": None, "results": []}),
+    ]
+    client = EventsProviderClient(http, retry_delay=0)
+
+    page = await client.events(date(2026, 1, 1))
+
+    assert page.results == []
+    assert http.get.await_count == 2
+
+
+async def test_register_is_not_retried():
+    http = AsyncMock(spec=httpx.AsyncClient)
+    http.post.return_value = make_response(503, {"detail": "busy"}, method="POST")
+    client = EventsProviderClient(http, retry_delay=0)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.register(EVENT_ID, "Иван", "Иванов", "ivan@example.com", "A15")
+
+    assert http.post.await_count == 1
 
 
 async def test_seats_returns_list():
@@ -98,7 +125,7 @@ async def test_seats_returns_list():
 
     seats = await client.seats(EVENT_ID)
 
-    http.get.assert_awaited_once_with(f"/api/events/{EVENT_ID}/seats/")
+    http.get.assert_awaited_once_with(f"/api/events/{EVENT_ID}/seats/", params=None)
     assert seats == ["A1", "A3"]
 
 
