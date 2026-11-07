@@ -3,7 +3,11 @@ from sqlalchemy import URL
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(str_strip_whitespace=True)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        str_strip_whitespace=True,
+    )
 
     postgres_host: str
     postgres_port: int
