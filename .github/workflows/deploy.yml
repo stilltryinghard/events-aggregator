@@ -23,6 +23,14 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USERNAME: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DATABASE_NAME: test_db
+          EVENTS_PROVIDER_URL: http://localhost:8001
+          EVENTS_PROVIDER_API_KEY: test-key
         run: uv run pytest
 
   build:
