@@ -15,11 +15,16 @@ class CapashinoClient:
         ticket_id: str,
         idempotency_key: str,
     ) -> None:
+        logger.info(
+            "Capashino request: message_length=%s, ticket_id_present=%s",
+            len(message),
+            bool(ticket_id),
+        )
         # Отправляем уведомление в Capashino
         response = await self.http.post(
             "/api/notifications",
             json={
-                "mesage": message,
+                "message": message,
                 "reference_id": ticket_id,
                 "idempotency_key": idempotency_key,
             },
