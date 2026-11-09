@@ -63,7 +63,7 @@ class CreateTicketUsecase:
         await self.outbox.create(
             event_type="ticket_purchased",
             payload={
-                "ticked_id": str(ticket_id),
+                "ticket_id": str(ticket_id),
                 "event_id": str(event_id),
                 "event_name": str(event_id),
                 "first_name": first_name,
