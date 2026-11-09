@@ -9,7 +9,13 @@ from app.usecases.errors import (
     SeatNotFound,
     TicketNotFound,
 )
-from app.usecases.protocols import EventReader, TicketClient, TicketStore, Transaction
+from app.usecases.protocols import (
+    EventReader,
+    OutboxStore,
+    TicketClient,
+    TicketStore,
+    Transaction,
+)
 from app.usecases.seats_pattern import seat_exists
 
 
@@ -22,11 +28,13 @@ class CreateTicketUsecase:
         tickets: TicketStore,
         client: TicketClient,
         transaction: Transaction,
+        outbox: OutboxStore,
     ):
         self.events = events
         self.tickets = tickets
         self.client = client
         self.transaction = transaction
+        self.outbox = outbox
 
     async def do(
         self,
@@ -51,6 +59,18 @@ class CreateTicketUsecase:
         )
         await self.tickets.create(
             ticket_id, event_id, first_name, last_name, email, seat
+        )
+        await self.outbox.create(
+            event_type="ticket_purchased",
+            payload={
+                "ticked_id": str(ticket_id),
+                "event_id": str(event_id),
+                "event_name": str(event_id),
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "seat": seat,
+            },
         )
         await self.transaction.commit()
         return ticket_id

@@ -14,6 +14,7 @@ from app.api.sync import router as sync_router
 from app.api.tickets import router as tickets_router
 from app.cache import SeatsCache
 from app.config import settings
+from app.outbox_worker import outbox_loop
 from app.worker import sync_loop
 
 logging.basicConfig(
@@ -24,18 +25,44 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with httpx.AsyncClient(
-        base_url=settings.events_provider_url,
-        headers={"x-api-key": settings.events_provider_api_key},
-        timeout=10.0,
-    ) as http:
-        app.state.http = http
+    async with (
+        httpx.AsyncClient(
+            base_url=settings.events_provider_url,
+            headers={"x-api-key": settings.events_provider_api_key},
+            timeout=10.0,
+        ) as events_http,
+        httpx.AsyncClient(
+            base_url=settings.capashino_url,
+            headers={"X-API-Key": settings.capashino_api_key},
+            timeout=10.0,
+        ) as capashino_http,
+    ):
+        app.state.http = events_http
         app.state.seats_cache = SeatsCache(ttl_seconds=30)
-        sync_task = asyncio.create_task(sync_loop(http))
-        yield
-        sync_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await sync_task
+
+        # Синхронизация мероприятий
+        sync_task = asyncio.create_task(sync_loop(events_http))
+
+        # Отправка уведомлений
+        outbox_task = None
+        if settings.capashino_api_key:
+            outbox_task = asyncio.create_task(outbox_loop(capashino_http))
+
+        try:
+            yield
+        finally:
+            # Останавливаем фоновые задачи
+            tasks = [sync_task]
+
+            if outbox_task is not None:
+                tasks.append(outbox_task)
+
+            for task in tasks:
+                task.cancel()
+
+            for task in tasks:
+                with suppress(asyncio.CancelledError):
+                    await task
 
 
 app = FastAPI(lifespan=lifespan)

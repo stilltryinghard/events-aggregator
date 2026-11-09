@@ -8,6 +8,7 @@ from app.clients.events_provider import EventsProviderClient
 from app.db import get_session
 from app.repositories.events import EventRepository
 from app.repositories.health import HealthRepository
+from app.repositories.outbox import OutboxRepository
 from app.repositories.sync_runs import SyncRunRepository
 from app.repositories.tickets import TicketRepository
 from app.usecases.get_seats import GetSeatsUsecase
@@ -67,13 +68,15 @@ SeatsUsecaseDep = Annotated[GetSeatsUsecase, Depends(get_seats_usecase)]
 
 
 def get_create_ticket_usecase(
-    session: SessionDep, client: EventsClientDep
+    session: SessionDep,
+    client: EventsClientDep,
 ) -> CreateTicketUsecase:
     return CreateTicketUsecase(
         events=EventRepository(session),
         tickets=TicketRepository(session),
         client=client,
         transaction=session,
+        outbox=OutboxRepository(session),
     )
 
 

@@ -74,3 +74,11 @@ class TicketStore(Protocol):
     async def get_active(self, ticket_id: uuid.UUID) -> Ticket | None: ...
 
     async def cancel(self, ticket_id: uuid.UUID) -> None: ...
+
+
+class OutboxStore(Protocol):
+    async def create(
+        self,
+        event_type: str,
+        payload: dict,
+    ) -> None: ...

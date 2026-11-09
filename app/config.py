@@ -28,5 +28,15 @@ class Settings(BaseSettings):
             database=self.postgres_database_name,
         )
 
+    # Настройки сервиса уведомлений
+    capashino_url: str = (
+        "http://student-system-capashino-web.student-system-capashino.svc:8000"
+    )
+    capashino_api_key: str = ""
+
+    # Настройки фонового воркера
+    outbox_interval_seconds: int = 10
+    outbox_batch_size: int = 50
+
 
 settings = Settings()  # pyright: ignore[reportCallIssue]
