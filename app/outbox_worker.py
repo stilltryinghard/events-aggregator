@@ -16,52 +16,53 @@ async def outbox_loop(http: httpx.AsyncClient) -> None:
 
     while True:
         try:
+            # Получаем ожидающие события
             async with async_session_maker() as session:
                 repo = OutboxRepository(session)
-
-                # Получаем события, ожидающие отправки
                 events = await repo.get_pending()
-                events = events[: settings.outbox_batch_size]
 
-                for event in events:
-                    try:
-                        if event.event_type != "ticket_purchased":
-                            logger.warning(
-                                "Неизвестный тип события: %s",
-                                event.event_type,
-                            )
-                            continue
+                # Копируем данные из ORM-объектов
+                pending = [
+                    (event.id, event.event_type, dict(event.payload))
+                    for event in events[: settings.outbox_batch_size]
+                ]
 
-                        payload = event.payload
-
-                        # Формируем текст уведомления
-                        message = (
-                            f"{payload['first_name']}, "
-                            f"вы зарегистрированы на "
-                            f"{payload['event_name']}. "
-                            f"Ваше место: {payload['seat']}."
+            # Обрабатываем события независимо
+            for event_id, event_type, payload in pending:
+                try:
+                    if event_type != "ticket_purchased":
+                        logger.warning(
+                            "Неизвестное событие: %s",
+                            event_type,
                         )
+                        continue
 
-                        # Отправляем уведомление
-                        await client.send_notification(
-                            message=message,
-                            ticket_id=payload["ticket_id"],
-                            idempotency_key=str(event.id),
-                        )
+                    message = (
+                        f"{payload['first_name']}, "
+                        f"вы зарегистрированы на "
+                        f"{payload['event_name']}. "
+                        f"Ваше место: {payload['seat']}."
+                    )
 
-                        # Отмечаем успешную отправку
-                        await repo.mark_sent(event.id)
+                    await client.send_notification(
+                        message=message,
+                        ticket_id=payload["ticket_id"],
+                        idempotency_key=str(event_id),
+                    )
+
+                    # Отмечаем успешную отправку
+                    async with async_session_maker() as session:
+                        repo = OutboxRepository(session)
+                        await repo.mark_sent(event_id)
                         await session.commit()
 
-                    except Exception:
-                        await session.rollback()
-                        logger.exception(
-                            "Ошибка отправки Outbox %s",
-                            event.id,
-                        )
+                except Exception:
+                    logger.exception(
+                        "Ошибка отправки Outbox %s",
+                        event_id,
+                    )
 
         except Exception:
             logger.exception("Ошибка воркера Outbox")
 
-        # Ждём перед следующей проверкой
         await asyncio.sleep(settings.outbox_interval_seconds)
