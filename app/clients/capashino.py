@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 import httpx
 
 
@@ -21,4 +25,11 @@ class CapashinoClient:
             },
         )
         # Если capashino вернул ошибку - выбрасываем исключение
+        if response.status_code != 201:
+            logger.error(
+                "Capashino вернул %s: %s",
+                response.status_code,
+                response.text[:1000],
+            )
+
         response.raise_for_status()
