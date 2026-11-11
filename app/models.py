@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, func, text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -54,6 +54,15 @@ class Ticket(Base):
     last_name: Mapped[str]
     email: Mapped[str]
     seat: Mapped[str]
+    idempotency_key: Mapped[str | None] = mapped_column(
+        unique=True,
+        nullable=True,
+    )
+    # Отпечаток данных покупки
+    request_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

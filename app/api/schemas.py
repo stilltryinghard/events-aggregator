@@ -65,6 +65,7 @@ class TicketCreate(BaseModel):
     last_name: str = Field(min_length=1)
     email: EmailStr
     seat: str = Field(min_length=2)
+    idempotency_key: str | None = Field(default=None, min_length=1)
 
 
 class TicketCreated(BaseModel):

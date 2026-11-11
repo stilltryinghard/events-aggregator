@@ -26,3 +26,7 @@ class TicketNotFound(AppError):
 
 class EventAlreadyPassed(AppError):
     detail = "Event has already passed"
+
+
+class IdempotencyConflict(AppError):
+    detail = "IDempotency key has already used with different data"

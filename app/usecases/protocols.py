@@ -69,6 +69,18 @@ class TicketStore(Protocol):
         last_name: str,
         email: str,
         seat: str,
+        idempotency_key: str | None = None,
+        request_hash: str | None = None,
+    ) -> None: ...
+
+    async def get_by_idempotency_key(
+        self,
+        key: str,
+    ) -> tuple[uuid.UUID, str | None] | None: ...
+
+    async def lock_idempotency_key(
+        self,
+        key: str,
     ) -> None: ...
 
     async def get_active(self, ticket_id: uuid.UUID) -> Ticket | None: ...
