@@ -1,6 +1,7 @@
+import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.api.dependencies import CancelTicketUsecaseDep, CreateTicketUsecaseDep
 from app.api.schemas import TicketCancelled, TicketCreate, TicketCreated
@@ -14,11 +15,27 @@ from app.usecases.errors import (
 
 router = APIRouter(prefix="/api")
 
+logger = logging.getLogger(__name__)
+
 
 @router.post(
     "/tickets", status_code=status.HTTP_201_CREATED, response_model=TicketCreated
 )
-async def create_ticket(body: TicketCreate, usecase: CreateTicketUsecaseDep):
+async def create_ticket(
+    request: Request, body: TicketCreate, usecase: CreateTicketUsecaseDep
+):
+
+    # Получаем исходный JSON без изменения запроса
+    raw_body = await request.json()
+
+    # Логируем только названия полей, не персональные данные
+    logger.warning(
+        "Ticket request: fields=%s, key_present=%s, headers=%s",
+        sorted(raw_body.keys()),
+        body.idempotency_key is not None,
+        [name for name in request.headers if "idemp" in name.lower()],
+    )
+
     try:
         ticket_id = await usecase.do(
             body.event_id,
