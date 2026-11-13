@@ -117,7 +117,7 @@ class CreateTicketUsecase:
             payload={
                 "ticket_id": str(ticket_id),
                 "event_id": str(event_id),
-                "event_name": str(event_id),
+                "event_name": event.name,
                 "first_name": first_name,
                 "last_name": last_name,
                 "email": email,
