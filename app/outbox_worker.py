@@ -19,12 +19,14 @@ async def outbox_loop(http: httpx.AsyncClient) -> None:
             # Получаем ожидающие события
             async with async_session_maker() as session:
                 repo = OutboxRepository(session)
-                events = await repo.get_pending()
+                events = await repo.get_pending(
+                    limit=settings.outbox_batch_size,
+                )
 
                 # Копируем данные из ORM-объектов
                 pending = [
                     (event.id, event.event_type, dict(event.payload))
-                    for event in events[: settings.outbox_batch_size]
+                    for event in events
                 ]
 
             # Обрабатываем события независимо
