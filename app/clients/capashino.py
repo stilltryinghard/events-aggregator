@@ -1,6 +1,4 @@
-import logging
-
-logger = logging.getLogger(__name__)
+import asyncio
 
 import httpx
 
@@ -15,26 +13,33 @@ class CapashinoClient:
         ticket_id: str,
         idempotency_key: str,
     ) -> None:
-        logger.info(
-            "Capashino request: message_length=%s, ticket_id_present=%s",
-            len(message),
-            bool(ticket_id),
-        )
-        # Отправляем уведомление в Capashino
-        response = await self.http.post(
-            "/api/notifications",
-            json={
-                "message": message,
-                "reference_id": ticket_id,
-                "idempotency_key": idempotency_key,
-            },
-        )
-        # Если capashino вернул ошибку - выбрасываем исключение
-        if response.status_code != 201:
-            logger.error(
-                "Capashino вернул %s: %s",
-                response.status_code,
-                response.text[:1000],
-            )
+        for attempt in range(5):
+            try:
+                response = await self.http.post(
+                    "/api/notifications",
+                    json={
+                        "message": message,
+                        "reference_id": ticket_id,
+                        "idempotency_key": idempotency_key,
+                    },
+                )
 
-        response.raise_for_status()
+                response.raise_for_status()
+                return
+
+            except httpx.HTTPStatusError as exc:
+                # Ошибки 4xx не повторяем
+                if exc.response.status_code < 500:
+                    raise
+
+                # Последняя попытка — отдаём ошибку воркеру
+                if attempt == 4:
+                    raise
+
+            except httpx.TransportError:
+                # Ошибка сети — тоже пробуем повторить
+                if attempt == 4:
+                    raise
+
+            # Пауза перед следующей попыткой
+            await asyncio.sleep(1)
