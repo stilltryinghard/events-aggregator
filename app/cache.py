@@ -21,3 +21,7 @@ class SeatsCache:
 
     def set(self, event_id: uuid.UUID, seats: list[str]) -> None:
         self._items[event_id] = (time.monotonic() + self.ttl_seconds, seats)
+
+    def invalidate(self, event_id: uuid.UUID) -> None:
+        # Удаляем устаревший список мест
+        self._items.pop(event_id, None)

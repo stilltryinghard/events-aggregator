@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.api.dependencies import CancelTicketUsecaseDep, CreateTicketUsecaseDep
 from app.api.schemas import TicketCancelled, TicketCreate, TicketCreated
@@ -18,7 +18,9 @@ router = APIRouter(prefix="/api")
 @router.post(
     "/tickets", status_code=status.HTTP_201_CREATED, response_model=TicketCreated
 )
-async def create_ticket(body: TicketCreate, usecase: CreateTicketUsecaseDep):
+async def create_ticket(
+    body: TicketCreate, usecase: CreateTicketUsecaseDep, request: Request
+):
     try:
         ticket_id = await usecase.do(
             body.event_id,
@@ -35,9 +37,15 @@ async def create_ticket(body: TicketCreate, usecase: CreateTicketUsecaseDep):
     except AppError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, exc.detail) from None
     except SeatUnavailable:
+        # Место уже занято — данные в кэше могли устареть
+        request.app.state.seats_cache.invalidate(body.event_id)
+
         raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Seat is already taken"
+            status.HTTP_400_BAD_REQUEST,
+            "Seat is already taken",
         ) from None
+
+    request.app.state.seats_cache.invalidate(body.event_id)
     return TicketCreated(ticket_id=ticket_id)
 
 
