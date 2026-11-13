@@ -38,5 +38,7 @@ class Settings(BaseSettings):
     outbox_interval_seconds: int = 10
     outbox_batch_size: int = 50
 
+    sentry_dsn: str = ""
+
 
 settings = Settings()  # pyright: ignore[reportCallIssue]

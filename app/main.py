@@ -3,10 +3,12 @@ import logging
 from contextlib import asynccontextmanager, suppress
 
 import httpx
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 from app.api.events import router as events_router
 from app.api.health import router as health_router
@@ -21,6 +23,15 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+
+# Подключаем мониторинг ошибок если задан DSN
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        integrations=[FastApiIntegration()],
+        traces_sample_rate=0.0,
+        send_default_pii=False,
+    )
 
 
 @asynccontextmanager
