@@ -31,12 +31,14 @@ class CreateTicketUsecase:
         client: TicketClient,
         transaction: Transaction,
         outbox: OutboxStore,
+        idempotency_ttl_seconds: int = 86400,
     ):
         self.events = events
         self.tickets = tickets
         self.client = client
         self.transaction = transaction
         self.outbox = outbox
+        self.idempotency_ttl_seconds = idempotency_ttl_seconds
 
     async def do(
         self,
@@ -61,6 +63,12 @@ class CreateTicketUsecase:
 
             # Блокируем ключ до завершения транзакции
             await self.tickets.lock_idempotency_key(idempotency_key)
+
+            # Освобождаем ключ, если срок его действия истёк
+            await self.tickets.release_expired_idempotency_key(
+                idempotency_key,
+                self.idempotency_ttl_seconds,
+            )
 
             # Проверяем, существует ли такая покупка
             existing = await self.tickets.get_by_idempotency_key(idempotency_key)

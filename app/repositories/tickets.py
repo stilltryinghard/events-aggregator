@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -93,3 +94,26 @@ class TicketRepository:
             text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
             {"key": key},
         )
+
+    async def release_expired_idempotency_key(
+        self,
+        key: str,
+        ttl_seconds: int,
+    ) -> None:
+        # Вычисляем время истечения срока ключа
+        cutoff = datetime.now(UTC) - timedelta(seconds=ttl_seconds)
+
+        # Сбрасываем только просроченный ключ
+        stmt = (
+            update(TicketModel)
+            .where(
+                TicketModel.idempotency_key == key,
+                TicketModel.created_at < cutoff,
+            )
+            .values(
+                idempotency_key=None,
+                request_hash=None,
+            )
+        )
+
+        await self.session.execute(stmt)

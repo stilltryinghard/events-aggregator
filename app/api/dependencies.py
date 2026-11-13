@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache import SeatsCache
 from app.clients.events_provider import EventsProviderClient
+from app.config import settings
 from app.db import get_session
 from app.repositories.events import EventRepository
 from app.repositories.health import HealthRepository
@@ -77,6 +78,7 @@ def get_create_ticket_usecase(
         client=client,
         transaction=session,
         outbox=OutboxRepository(session),
+        idempotency_ttl_seconds=settings.idempotency_ttl_seconds,
     )
 
 

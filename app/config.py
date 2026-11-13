@@ -40,5 +40,8 @@ class Settings(BaseSettings):
 
     sentry_dsn: str = ""
 
+    # Срок действия ключа идемпотентности — 24 часа
+    idempotency_ttl_seconds: int = 86400
+
 
 settings = Settings()  # pyright: ignore[reportCallIssue]
