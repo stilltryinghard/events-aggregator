@@ -2,6 +2,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.enums import EventStatus
+
 
 @dataclass
 class Place:
@@ -20,7 +22,7 @@ class Event:
     event_time: datetime
     name: str
     place: Place
-    status: str
+    status: EventStatus | str
     number_of_visitors: int
     registration_deadline: datetime
     status_changed_at: datetime

@@ -5,6 +5,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enums import SyncRunStatus
 from app.models import SyncRun as SyncRunModel
 
 
@@ -24,12 +25,16 @@ class SyncRunRepository:
         await self.session.execute(
             update(SyncRunModel)
             .where(
-                SyncRunModel.status == "running",
+                SyncRunModel.status == SyncRunStatus.RUNNING,
                 SyncRunModel.started_at < func.now() - text("interval '1 hour'"),
             )
-            .values(status="failed", finished_at=func.now(), error="stale run")
+            .values(
+                status=SyncRunStatus.FAILED,
+                finished_at=func.now(),
+                error="stale run",
+            )
         )
-        run = SyncRunModel(status="running")
+        run = SyncRunModel(status=SyncRunStatus.RUNNING)
         try:
             async with self.session.begin_nested():
                 self.session.add(run)
@@ -42,7 +47,7 @@ class SyncRunRepository:
         если их ещё не было"""
         stmt = (
             select(SyncRunModel.last_changed_at)
-            .where(SyncRunModel.status == "success")
+            .where(SyncRunModel.status == SyncRunStatus.SUCCESS)
             .where(SyncRunModel.last_changed_at.is_not(None))
             .order_by(SyncRunModel.started_at.desc())
             .limit(1)
@@ -57,7 +62,7 @@ class SyncRunRepository:
             update(SyncRunModel)
             .where(SyncRunModel.id == run_id)
             .values(
-                status="success",
+                status=SyncRunStatus.SUCCESS,
                 finished_at=func.now(),
                 last_changed_at=last_changed_at,
             )
@@ -70,7 +75,7 @@ class SyncRunRepository:
             update(SyncRunModel)
             .where(SyncRunModel.id == run_id)
             .values(
-                status="failed",
+                status=SyncRunStatus.FAILED,
                 finished_at=func.now(),
                 error=error,
             )

@@ -29,4 +29,4 @@ class EventAlreadyPassed(AppError):
 
 
 class IdempotencyConflict(AppError):
-    detail = "IDempotency key has already used with different data"
+    detail = "Idempotency key has already been used with different data"

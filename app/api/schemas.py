@@ -3,6 +3,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.enums import EventStatus
+
 
 class PlaceShort(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -21,7 +23,7 @@ class EventListItem(BaseModel):
     place: PlaceShort
     event_time: datetime
     registration_deadline: datetime
-    status: str
+    status: EventStatus | str
     number_of_visitors: int
 
 
@@ -50,7 +52,7 @@ class EventDetail(BaseModel):
     place: PlaceDetail
     event_time: datetime
     registration_deadline: datetime
-    status: str
+    status: EventStatus | str
     number_of_visitors: int
 
 

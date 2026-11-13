@@ -1,5 +1,6 @@
 import uuid
 
+from app.enums import EventStatus
 from app.usecases.errors import EventNotFound, EventNotPublished
 from app.usecases.protocols import EventReader, SeatsClient, SeatsStore
 
@@ -20,7 +21,7 @@ class GetSeatsUsecase:
         event = await self.events.get(event_id)
         if event is None:
             raise EventNotFound
-        if event.status != "published":
+        if event.status != EventStatus.PUBLISHED:
             raise EventNotPublished
 
         seats = await self.client.seats(event_id)

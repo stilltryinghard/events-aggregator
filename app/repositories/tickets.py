@@ -25,7 +25,6 @@ class TicketRepository:
         idempotency_key: str | None = None,
         request_hash: str | None = None,
     ) -> None:
-        # Создаём запись о билете
         ticket = TicketModel(
             ticket_id=ticket_id,
             event_id=event_id,
@@ -37,10 +36,8 @@ class TicketRepository:
             request_hash=request_hash,
         )
 
-        # Добавляем объект в сессию SQLAlchemy
         self.session.add(ticket)
 
-        # Отправляем INSERT в PostgreSQL
         await self.session.flush()
 
     async def get_active(self, ticket_id: uuid.UUID) -> Ticket | None:
@@ -73,7 +70,6 @@ class TicketRepository:
         self,
         key: str,
     ) -> tuple[uuid.UUID, str | None] | None:
-        # Ищем билет по ключу запроса
         stmt = select(
             TicketModel.ticket_id,
             TicketModel.request_hash,
@@ -82,14 +78,12 @@ class TicketRepository:
         result = await self.session.execute(stmt)
         row = result.one_or_none()
 
-        # Если такого ключа нет - вовращаем None
         if row is None:
             return None
 
         return row.ticket_id, row.request_hash
 
     async def lock_idempotency_key(self, key: str) -> None:
-        # Блокируем выполнение запросов с одинаковым ключом
         await self.session.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
             {"key": key},
@@ -100,10 +94,8 @@ class TicketRepository:
         key: str,
         ttl_seconds: int,
     ) -> None:
-        # Вычисляем время истечения срока ключа
         cutoff = datetime.now(UTC) - timedelta(seconds=ttl_seconds)
 
-        # Сбрасываем только просроченный ключ
         stmt = (
             update(TicketModel)
             .where(

@@ -4,6 +4,7 @@ from typing import Protocol
 
 from app.clients.events_provider import EventsPage
 from app.entities import Event, Ticket
+from app.enums import OutboxEventType
 
 
 class EventsClient(Protocol):
@@ -97,6 +98,6 @@ class TicketStore(Protocol):
 class OutboxStore(Protocol):
     async def create(
         self,
-        event_type: str,
+        event_type: OutboxEventType,
         payload: dict,
     ) -> None: ...

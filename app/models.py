@@ -2,9 +2,12 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, func, text
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+from app.db_types import EventStatusType
+from app.enums import EventStatus, OutboxEventType, OutboxStatus, SyncRunStatus
 
 
 class Place(Base):
@@ -27,7 +30,7 @@ class Event(Base):
     name: Mapped[str]
     place_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("places.id"))
     place: Mapped[Place] = relationship()
-    status: Mapped[str]
+    status: Mapped[EventStatus | str] = mapped_column(EventStatusType())
     number_of_visitors: Mapped[int]
     registration_deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status_changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -58,7 +61,6 @@ class Ticket(Base):
         unique=True,
         nullable=True,
     )
-    # Отпечаток данных покупки
     request_hash: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
@@ -82,7 +84,13 @@ class SyncRun(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(default=uuid.uuid4, primary_key=True)
-    status: Mapped[str]
+    status: Mapped[SyncRunStatus] = mapped_column(
+        SQLEnum(
+            SyncRunStatus,
+            native_enum=False,
+            values_callable=lambda enum: [item.value for item in enum],
+        ),
+    )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -99,13 +107,24 @@ class Outbox(Base):
         default=uuid.uuid4,
     )
 
-    event_type: Mapped[str]
+    event_type: Mapped[OutboxEventType] = mapped_column(
+        SQLEnum(
+            OutboxEventType,
+            native_enum=False,
+            values_callable=lambda enum: [item.value for item in enum],
+        ),
+    )
 
     payload: Mapped[dict] = mapped_column(JSON)
 
-    status: Mapped[str] = mapped_column(
-        default="pending",
-        server_default="pending",
+    status: Mapped[OutboxStatus] = mapped_column(
+        SQLEnum(
+            OutboxStatus,
+            native_enum=False,
+            values_callable=lambda enum: [item.value for item in enum],
+        ),
+        default=OutboxStatus.PENDING,
+        server_default=OutboxStatus.PENDING.value,
         index=True,
     )
 

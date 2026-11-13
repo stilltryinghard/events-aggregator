@@ -6,6 +6,7 @@ import httpx
 from app.clients.capashino import CapashinoClient
 from app.config import settings
 from app.db import async_session_maker
+from app.enums import OutboxEventType
 from app.repositories.outbox import OutboxRepository
 
 logger = logging.getLogger(__name__)
@@ -16,23 +17,20 @@ async def outbox_loop(http: httpx.AsyncClient) -> None:
 
     while True:
         try:
-            # Получаем ожидающие события
             async with async_session_maker() as session:
                 repo = OutboxRepository(session)
                 events = await repo.get_pending(
                     limit=settings.outbox_batch_size,
                 )
 
-                # Копируем данные из ORM-объектов
                 pending = [
                     (event.id, event.event_type, dict(event.payload))
                     for event in events
                 ]
 
-            # Обрабатываем события независимо
             for event_id, event_type, payload in pending:
                 try:
-                    if event_type != "ticket_purchased":
+                    if event_type != OutboxEventType.TICKET_PURCHASED:
                         logger.warning(
                             "Неизвестное событие: %s",
                             event_type,
@@ -52,7 +50,6 @@ async def outbox_loop(http: httpx.AsyncClient) -> None:
                         idempotency_key=str(event_id),
                     )
 
-                    # Отмечаем успешную отправку
                     async with async_session_maker() as session:
                         repo = OutboxRepository(session)
                         await repo.mark_sent(event_id)

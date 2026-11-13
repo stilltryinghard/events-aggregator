@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from app.enums import EventStatus, OutboxEventType
 from app.usecases.errors import (
     EventAlreadyPassed,
     EventNotFound,
@@ -52,7 +53,6 @@ class CreateTicketUsecase:
         request_hash = None
 
         if idempotency_key is not None:
-            # Вычисляем хеш данных покупки
             request_hash = build_request_hash(
                 event_id,
                 first_name,
@@ -70,7 +70,6 @@ class CreateTicketUsecase:
                 self.idempotency_ttl_seconds,
             )
 
-            # Проверяем, существует ли такая покупка
             existing = await self.tickets.get_by_idempotency_key(idempotency_key)
 
             if existing is not None:
@@ -83,13 +82,12 @@ class CreateTicketUsecase:
                 # Повторная покупка — возвращаем старый билет
                 return ticket_id
 
-        # Проверяем существование мероприятия
         event = await self.events.get(event_id)
 
         if event is None:
             raise EventNotFound
 
-        if event.status != "published":
+        if event.status != EventStatus.PUBLISHED:
             raise EventNotPublished
 
         if datetime.now(UTC) >= event.registration_deadline:
@@ -98,7 +96,6 @@ class CreateTicketUsecase:
         if not seat_exists(seat, event.place.seats_pattern):
             raise SeatNotFound
 
-        # Регистрируем билет у внешнего провайдера
         ticket_id = await self.client.register(
             event_id,
             first_name,
@@ -107,7 +104,6 @@ class CreateTicketUsecase:
             seat,
         )
 
-        # Сохраняем билет и данные идемпотентности
         await self.tickets.create(
             ticket_id,
             event_id,
@@ -119,9 +115,8 @@ class CreateTicketUsecase:
             request_hash=request_hash,
         )
 
-        # Создаём событие для отправки уведомления
         await self.outbox.create(
-            event_type="ticket_purchased",
+            event_type=OutboxEventType.TICKET_PURCHASED,
             payload={
                 "ticket_id": str(ticket_id),
                 "event_id": str(event_id),
@@ -133,7 +128,6 @@ class CreateTicketUsecase:
             },
         )
 
-        # Подтверждаем сохранение билета и Outbox
         await self.transaction.commit()
 
         return ticket_id

@@ -10,7 +10,6 @@ def build_request_hash(
     email: str,
     seat: str,
 ) -> str:
-    # Собираем данные покупки в определённом порядке
     data = [
         str(event_id),
         first_name,
@@ -19,8 +18,6 @@ def build_request_hash(
         seat,
     ]
 
-    # Превращаем данные в строку JSON
     raw = json.dumps(data, ensure_ascii=False)
 
-    # Вычисляем SHA-256 и возвращаем строку из 64 символов
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

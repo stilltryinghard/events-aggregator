@@ -24,7 +24,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-# Подключаем мониторинг ошибок если задан DSN
 if settings.sentry_dsn:
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
@@ -51,10 +50,8 @@ async def lifespan(app: FastAPI):
         app.state.http = events_http
         app.state.seats_cache = SeatsCache(ttl_seconds=30)
 
-        # Синхронизация мероприятий
         sync_task = asyncio.create_task(sync_loop(events_http))
 
-        # Отправка уведомлений
         outbox_task = None
         if settings.capashino_api_key:
             outbox_task = asyncio.create_task(outbox_loop(capashino_http))
@@ -62,7 +59,6 @@ async def lifespan(app: FastAPI):
         try:
             yield
         finally:
-            # Останавливаем фоновые задачи
             tasks = [sync_task]
 
             if outbox_task is not None:
